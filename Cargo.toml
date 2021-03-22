@@ -1,0 +1,13 @@
+[package]
+name = "sshkit"
+version = "0.1.0"
+authors = ["alienzj <alienchuj@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+rexpect = "0.4"
+clap = "2.33.3"
+
+[[bin]]
+name = "sshkit"
+path = "src/main.rs"
