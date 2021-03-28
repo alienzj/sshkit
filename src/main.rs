@@ -1,74 +1,113 @@
-#[macro_use]
-extern crate slog;
-extern crate slog_async;
-extern crate slog_term;
-
+use clap::Clap;
+use serde_derive::Deserialize;
+use std::fmt::Debug;
 use std::fs::File;
-use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 
-use clap::ArgMatches;
+#[derive(Clap, Debug)]
+#[clap(version = "0.1", author = "alienzj <alienchuj@gmail.com>")]
+struct Opts {
+    #[clap(subcommand)]
+    subcmd: SubCommand,
+    #[clap(short)]
+    verbose: bool,
+    #[clap(short)]
+    otp: bool,
+    #[clap(short)]
+    retry: bool,
+}
 
-use sshkit;
+#[derive(Clap, Debug)]
+enum SubCommand {
+    Config(Config),
+    Login(Login),
+    Tunel(Tunel),
+    Upload(Upload),
+    Download(Download),
+}
 
-use serde_derive::{Deserialize, Serialize};
-
-use users::{Groups, Users, UsersCache};
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clap, Deserialize, Debug)]
 struct Config {
+    #[clap(short, long, default_value = "~/.config/sshkit/sshkit.toml")]
+    config: String,
     user: String,
     node: String,
     password: String,
     code: String,
-    tunel: String,
+    tunel: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clap, Debug)]
+struct Login {
+    #[clap(short, long, default_value = "~/.config/sshkit/sshkit.toml")]
+    config: String,
+    user: String,
+    node: String,
+    password: String,
+    code: String,
+}
+
+#[derive(Clap, Debug)]
+struct Tunel {
+    #[clap(short, long, default_value = "~/.config/sshkit/sshkit.toml")]
+    config: String,
+    user: String,
+    node: String,
+    password: String,
+    code: String,
+    tunel: Vec<String>,
+}
+
+#[derive(Clap, Debug)]
+struct Upload {
+    #[clap(short, long, default_value = "~/.config/sshkit/sshkit.toml")]
+    config: String,
+    user: String,
+    node: String,
+    password: String,
+    code: String,
+    from: String,
+    to: String,
+}
+
+#[derive(Clap, Debug)]
+struct Download {
+    #[clap(short, long, default_value = "~/.config/sshkit/sshkit.toml")]
+    config: String,
+    user: String,
+    node: String,
+    password: String,
+    code: String,
+    from: String,
+    to: String,
+}
+
+#[derive(Deserialize, Debug)]
 struct Configs {
-    host_vec: Option<Vec<Config>>,
+    configs: Vec<Config>,
 }
 
 fn main() {
-    let app_m = sshkit::cli::build_cli().get_matches();
+    let opts = Opts::parse();
 
-    match app_m.subcommand_name() {
-        Some("config") => configer(&app_m),
-        Some("login") => loginer(&app_m),
-        Some("tunel") => tuneler(&app_m),
-        Some("upload") => uploader(&app_m),
-        Some("download") => downloader(&app_m),
-        _ => {}
+    match opts.subcmd {
+        SubCommand::Config(config) => configer(config),
+        SubCommand::Login(config) => loginer(config),
+        SubCommand::Tunel(config) => tuneler(config),
+        SubCommand::Upload(config) => uploader(config),
+        SubCommand::Download(config) => downloader(config),
     }
 }
 
-fn configer(matches: &ArgMatches) {
-    let mut cache = UsersCache::new();
-    let uid = cache.get_current_gid();
-    let user = cache.get_user_by_uid(uid).unwrap();
-
-    let config_file = matches.value_of("config").unwrap();
-    let user_name = matches.value_of("user").unwrap();
-    let node_address = matches.value_of("node").unwrap();
-    let password = matches.value_of("password").unwrap();
-    let code = matches.value_of("code").unwrap();
-    let tunel = matches.value_of("tunel").unwrap();
-
+fn configer(config: Config) {
+    let config_file = config.config;
+    let user_name = config.user;
     println!("{}", config_file);
     println!("{}", user_name);
-    println!("{}", node_address);
 
-    let conf = Config {
-        user: user_name.to_string(),
-        node: node_address.to_string(),
-        password: password.to_string(),
-        code: code.to_string(),
-        tunel: tunel.to_string(),
-    };
-
-    if Path::exists(Path::new(config_file)) {
-        let mut config_handle = match File::open(config_file) {
+    if Path::exists(Path::new(&config_file)) {
+        let mut config_handle = match File::open(&config_file) {
             Ok(s) => s,
             Err(e) => panic!("Error occurred opening file: {} - Err: {}", config_file, e),
         };
@@ -78,18 +117,16 @@ fn configer(matches: &ArgMatches) {
             Err(e) => panic!("Error reading file: {}", e),
         };
 
-        let config: Configs = toml::from_str(config_str.as_str()).unwrap();
+        let configs: Configs = toml::from_str(config_str.as_str()).unwrap();
 
-        println!("config: \n {:#?}", config);
+        println!("config: \n {:#?}", configs);
     }
 }
 
-fn loginer(matches: &ArgMatches) {}
+fn loginer(config: Login) {}
 
-fn tuneler(matches: &ArgMatches) {
-    let tunels: Vec<_> = matches.values_of("tunel").unwrap().collect();
-}
+fn tuneler(config: Tunel) {}
 
-fn uploader(matches: &ArgMatches) {}
+fn uploader(config: Upload) {}
 
-fn downloader(matches: &ArgMatches) {}
+fn downloader(config: Download) {}
