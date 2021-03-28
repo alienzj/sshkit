@@ -1,7 +1,16 @@
 use clap::{App, Arg, SubCommand};
+use users::{Groups, Users, UsersCache};
 
-pub fn build_cli() {
-    let matches = App::new("sshkit")
+pub fn build_cli() -> App<'static, 'static> {
+    let mut cache = UsersCache::new();
+    let uid = cache.get_current_gid();
+    let user = cache.get_user_by_uid(uid).unwrap();
+
+    let default_config = std::path::Path::new("~")
+        .join(user.name())
+        .join(".config/sshkit.toml");
+
+    let app = App::new("sshkit")
         .version("0.1.0")
         .author("Jie Zhu <alienchuj@gmail.com>")
         .about("ssh toolkit")
@@ -13,6 +22,7 @@ pub fn build_cli() {
                         .short("c")
                         .long("config")
                         .value_name("config file")
+                        .default_value(default_config.to_str().unwrap())
                         .help("local config file, default: ~/.config/sshkit/sshkit.toml")
                         .takes_value(true),
                 )
@@ -123,6 +133,14 @@ pub fn build_cli() {
                         .value_name("ssh otp code")
                         .help("ssh otp code")
                         .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("tunel")
+                        .long("tunel")
+                        .value_name("ssh tunel list")
+                        .help("ssh tunel list")
+                        .multiple(true)
+                        .takes_value(true),
                 ),
         )
         .subcommand(
@@ -194,6 +212,6 @@ pub fn build_cli() {
                         .help("ssh otp code")
                         .takes_value(true),
                 ),
-        )
-        .get_matches();
+        );
+    return app;
 }
