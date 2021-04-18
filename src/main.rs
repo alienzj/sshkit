@@ -1,6 +1,8 @@
 use clap::Clap;
 use serde_derive::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt::Debug;
+use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
@@ -107,10 +109,6 @@ struct Download {
     #[clap(long)]
     to: String,
 }
-#[derive(Deserialize, Debug)]
-struct Configs {
-    configs: Vec<Hosts>,
-}
 
 #[derive(Deserialize, Serialize, Debug)]
 struct Hosts {
@@ -119,33 +117,32 @@ struct Hosts {
 
 #[derive(Deserialize, Serialize, Debug)]
 struct Host {
-    user: String,
-    node: String,
-    password: String,
-    code: String,
+    pub user: String,
+    pub node: String,
+    pub password: String,
+    pub code: String,
 }
 
-fn main() {
+fn main() -> std::io::Result<()> {
     let opts = Opts::parse();
 
     match opts.subcmd {
-        SubCommand::Config(args) => configer(args),
-        SubCommand::Login(args) => loginer(args),
-        SubCommand::Tunel(args) => tuneler(args),
-        SubCommand::Upload(args) => uploader(args),
-        SubCommand::Download(args) => downloader(args),
-    }
+        SubCommand::Config(args) => configer(&args),
+        SubCommand::Login(args) => loginer(&args),
+        SubCommand::Tunel(args) => tuneler(&args),
+        SubCommand::Upload(args) => uploader(&args),
+        SubCommand::Download(args) => downloader(&args),
+    };
+    Ok(())
 }
 
-fn configer(args: Config) {
-    let config_file = args.config;
-    let user_name = args.user;
-    println!("{} {}", config_file, user_name);
+fn configer(args: &Config) -> std::io::Result<()> {
+    println!("input args:\n{:?}\n", args);
 
-    if Path::exists(Path::new(&config_file)) {
-        let mut handle = match File::open(&config_file) {
+    if Path::exists(Path::new(&args.config)) {
+        let mut handle = match File::open(&args.config) {
             Ok(s) => s,
-            Err(e) => panic!("Error occurred opening file: {} - Err: {}", config_file, e),
+            Err(e) => panic!("Error occurred opening file: {} - Err: {}", args.config, e),
         };
 
         let mut config_str = String::new();
@@ -153,19 +150,52 @@ fn configer(args: Config) {
             Ok(s) => s,
             Err(e) => panic!("Error reading file: {}", e),
         };
-        println!("{:?}", config_str);
+        println!("input host:\n{:?}\n", config_str);
 
-        let configs: Hosts = toml::from_str(config_str.as_str()).unwrap();
-        println!("{:?}", configs);
-        //let configs_toml = toml::to_string_pretty(&configs).unwrap();
-        //println!("{:?}", configs_toml);
+
+        let mut host_vec: Hosts = toml::from_str(config_str.as_str()).unwrap();
+        for host in &mut host_vec.host {
+            if (host.user == args.user) && (host.node == args.node) {
+                host.code = args.code.clone();
+                host.password = args.password.clone();
+            }
+        }
+        println!("decode host:\n{:?}\n", host_vec);
+
+        let output_str = toml::to_string(&host_vec).unwrap();
+        std::fs::write(&args.config, output_str.as_bytes())?;
+ 
+        Ok(())
+    }
+    else {
+        let mut handle = match File::create(&args.config) {
+            Ok(s) => s,
+            Err(e) => panic!("Error occurred creating file: {} - Err: {}", args.config, e),
+        };
+        let mut hosts: Hosts = Hosts {
+            host: Vec::new(),
+        }; 
+
+        let host: Host = Host {
+            user: args.user.clone(),
+            node: args.node.clone(),
+            password: args.password.clone(),
+            code: args.code.clone()
+        };
+        hosts.host.push(host);
+
+        let config_str = toml::to_string(&hosts).unwrap();
+        println!("output config host:\n {:?}\n", hosts);
+
+        handle.write_all(config_str.as_bytes())?;
+        Ok(())
     }
 }
 
-fn loginer(args: Login) {}
+fn loginer(args: &Login) -> std::io::Result<()> { Ok(()) }
 
-fn tuneler(args: Tunel) {}
+fn tuneler(args: &Tunel) -> std::io::Result<()> { Ok(()) }
 
-fn uploader(args: Upload) {}
+fn uploader(args: &Upload) -> std::io::Result<()> { Ok(()) }
 
-fn downloader(args: Download) {}
+fn downloader(args: &Download) -> std::io::Result<()> { Ok(()) }
